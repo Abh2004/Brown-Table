@@ -1,0 +1,17 @@
+
+/create-group   -> {will create the group}  
+   /menu -> {will display 3 menus} 
+       /menu1 -> {will choose the  items and add to cart}
+       /menu2 -> {will choose the  items and add to cart}
+       /menu3 -> {will choose the  items and add to cart}
+    /update-order -> {this person order will get updated to the groups order }
+    /group-order -> {this will show hte order done by all the peeps separately peruser  but the order will be one per group} 
+
+
+
+
+
+
+/invite-member  -> {generate link for the group}
+/join -> {person will enter the link and click on join button to join the group }
+
