@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Plus, Minus, ShoppingCart, ArrowRight, Loader2, Edit, Save, X, Trash2 } from "lucide-react";
+import {
+  Users,
+  Plus,
+  Minus,
+  ShoppingCart,
+  ArrowRight,
+  Loader2,
+  Edit,
+  Save,
+  X,
+  Trash2,
+} from "lucide-react";
 import { useBooking } from "../context/BookingContext";
 import { useGroupMembers } from "../context/groupMemebersContext";
 import { useAuth } from "../context/AuthContext";
@@ -12,8 +23,21 @@ const GroupOrder: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const { cart, updateCartItemQuantity, totalPrice, totalCartItems, setCurrentGroupId } = useBooking();
-  const { groupMembers, groupInfo, loadGroup, setGroupInfo, loading: groupLoading, deleteGroup } = useGroupMembers();
+  const {
+    cart,
+    updateCartItemQuantity,
+    totalPrice,
+    totalCartItems,
+    setCurrentGroupId,
+  } = useBooking();
+  const {
+    groupMembers,
+    groupInfo,
+    loadGroup,
+    setGroupInfo,
+    loading: groupLoading,
+    deleteGroup,
+  } = useGroupMembers();
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,34 +46,34 @@ const GroupOrder: React.FC = () => {
   const [editedGroupName, setEditedGroupName] = useState("");
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  const groupId = searchParams.get('groupId');
+  const groupId = searchParams.get("groupId");
 
   // Load group order data when component mounts or groupId changes
   useEffect(() => {
     const loadGroupData = async () => {
       // If no groupId, redirect to groups page
       if (!groupId) {
-        navigate('/groups');
+        navigate("/groups");
         return;
       }
 
       try {
         setLoading(true);
         setError(null);
-        
+
         // Load group data using the context method
         await loadGroup(groupId);
-        
+
         // Load group order data (includes cart items)
         const orderResponse = await groupAPI.getGroupOrder(groupId);
         if (orderResponse.success) {
           setOrderData(orderResponse.data);
           console.log("✅ Group order loaded:", orderResponse.data);
         }
-        
+
         // Set the current group ID in booking context for cart syncing
         setCurrentGroupId(groupId);
-        
+
         console.log("✅ Group order data loaded successfully");
       } catch (err: any) {
         console.error("❌ Failed to load group data:", err);
@@ -71,8 +95,10 @@ const GroupOrder: React.FC = () => {
       setError(null);
 
       // Update group name via API
-      const response = await groupAPI.updateGroup(groupId, { name: editedGroupName });
-      
+      const response = await groupAPI.updateGroup(groupId, {
+        name: editedGroupName,
+      });
+
       if (response.success) {
         // Update local state
         setGroupInfo({ ...groupInfo, name: editedGroupName });
@@ -111,10 +137,10 @@ const GroupOrder: React.FC = () => {
       setError(null);
 
       await deleteGroup(groupId, currentUserId);
-      
+
       console.log("✅ Group deleted successfully");
       // Navigate to groups page after successful deletion
-      navigate('/groups');
+      navigate("/groups");
     } catch (err: any) {
       console.error("❌ Failed to delete group:", err);
       setError(err.message || "Failed to delete group");
@@ -131,13 +157,13 @@ const GroupOrder: React.FC = () => {
   const cartByMember = orderData?.itemsByMember || {};
 
   // Calculate totals from the order data
-  const totalItems = orderData?.order?.items?.reduce(
-    (sum: number, item: any) => sum + item.quantity,
-    0
-  ) || 0;
-  
-  const getCartTotal = () =>
-    orderData?.order?.totalAmount || 0;
+  const totalItems =
+    orderData?.order?.items?.reduce(
+      (sum: number, item: any) => sum + item.quantity,
+      0
+    ) || 0;
+
+  const getCartTotal = () => orderData?.order?.totalAmount || 0;
 
   // Show loading state
   if (loading || groupLoading) {
@@ -154,7 +180,9 @@ const GroupOrder: React.FC = () => {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="max-w-md w-full mx-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <h3 className="text-red-800 font-medium mb-2">Error Loading Group</h3>
+            <h3 className="text-red-800 font-medium mb-2">
+              Error Loading Group
+            </h3>
             <p className="text-red-600 mb-4">{error}</p>
             <div className="space-y-2">
               <button
@@ -164,7 +192,7 @@ const GroupOrder: React.FC = () => {
                 Try Again
               </button>
               <button
-                onClick={() => navigate('/groups')}
+                onClick={() => navigate("/groups")}
                 className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Back to Groups
@@ -182,10 +210,15 @@ const GroupOrder: React.FC = () => {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="max-w-md w-full mx-4">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <h3 className="text-yellow-800 font-medium mb-2">Group Not Found</h3>
-            <p className="text-yellow-600 mb-4">The group you're looking for doesn't exist or you don't have access to it.</p>
+            <h3 className="text-yellow-800 font-medium mb-2">
+              Group Not Found
+            </h3>
+            <p className="text-yellow-600 mb-4">
+              The group you're looking for doesn't exist or you don't have
+              access to it.
+            </p>
             <button
-              onClick={() => navigate('/groups')}
+              onClick={() => navigate("/groups")}
               className="w-full bg-[#4d3a00] text-white px-4 py-2 rounded-lg hover:bg-[#6e6240] transition-colors"
             >
               Back to Groups
@@ -208,9 +241,9 @@ const GroupOrder: React.FC = () => {
                 value={editedGroupName}
                 onChange={(e) => setEditedGroupName(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     updateGroupName();
-                  } else if (e.key === 'Escape') {
+                  } else if (e.key === "Escape") {
                     cancelEditingGroupName();
                   }
                 }}
@@ -265,9 +298,9 @@ const GroupOrder: React.FC = () => {
             </div>
           ))}
           <span className="ml-2 text-gray-600 text-sm">
-            {groupMembers.length === 1 
-              ? "Just you" 
-              : `${groupMembers.length} members`} 
+            {groupMembers.length === 1
+              ? "Just you"
+              : `${groupMembers.length} members`}
             <ArrowRight className="inline w-4 h-4 align-middle ml-1" />
           </span>
         </div>
@@ -319,9 +352,7 @@ const GroupOrder: React.FC = () => {
                       )}
                     </div>
                     {member.id === currentUserId ? (
-                      <div
-                        className="flex items-center rounded-full px-2 py-1 bg-[#4d3a00] text-white cursor-pointer"
-                      >
+                      <div className="flex items-center rounded-full px-2 py-1 bg-[#4d3a00] text-white cursor-pointer">
                         <button
                           onClick={() =>
                             updateCartItemQuantity(item.id, item.quantity - 1)
@@ -411,7 +442,9 @@ const GroupOrder: React.FC = () => {
               Delete Group
             </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this group? This action cannot be undone and will remove all orders and data associated with this group.
+              Are you sure you want to delete this group? This action cannot be
+              undone and will remove all orders and data associated with this
+              group.
             </p>
             <div className="flex gap-3">
               <button

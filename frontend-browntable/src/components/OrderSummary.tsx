@@ -1,7 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  X,
+  Edit3,
+  Save,
+  Users,
+  CreditCard,
+  UserCheck,
+  RefreshCw,
+} from "lucide-react";
 import { useBooking } from "../context/BookingContext";
 import { useGroupMembers } from "../context/groupMemebersContext";
-import { X, Plus, Minus } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { orderAPI } from "../services/api";
+import CoffeeLoader from "./CoffeeLoader";
 
 interface OrderSummaryProps {
   open: boolean;
@@ -12,22 +24,79 @@ const SERVICE_RATE = 0.1;
 const TAX_RATE = 0.18;
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
-  const { cart, updateCartItemQuantity, updateCartItemNotes } = useBooking();
-  const { groupMembers, groupInfo } = useGroupMembers();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { currentGroupId } = useBooking();
+  const { groupInfo } = useGroupMembers();
 
-  // Assume the logged-in user is 'karthik' for demo
-  // TODO: Get current user from the database
-  const currentUserId = "karthik";
+  // State for backend data
+  const [orderData, setOrderData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [lastApiCallTime, setLastApiCallTime] = useState<number>(0);
 
   // Notes editing state
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState<string>("");
 
-  // Group cart items by member
-  const cartByMember = groupMembers.reduce((acc: any, member: any) => {
-    acc[member.id] = cart.filter((item: any) => item.addedBy === member.id);
-    return acc;
-  }, {} as Record<string, any[]>);
+  // Load order data when component opens
+  useEffect(() => {
+    if (open && currentGroupId) {
+      loadOrderData();
+    }
+  }, [open, currentGroupId]);
+
+  // No automatic periodic refresh - only manual refresh via button
+
+  // Check if current user is the group owner
+  useEffect(() => {
+    if (user && groupInfo) {
+      setIsOwner(groupInfo.adminId === user.id);
+    }
+  }, [user, groupInfo]);
+
+  const loadOrderData = async () => {
+    if (!currentGroupId) return;
+
+    // Check cooldown (5 seconds between API calls)
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCallTime;
+    if (timeSinceLastCall < 5000) {
+      console.log("⏳ OrderSummary API call skipped - cooldown active:", {
+        timeSinceLastCall: Math.round(timeSinceLastCall / 1000),
+        remainingCooldown: Math.round((5000 - timeSinceLastCall) / 1000),
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setLastApiCallTime(now);
+
+      const response = await orderAPI.getGroupOrder(currentGroupId);
+
+      if (response.success) {
+        setOrderData(response.data);
+        console.log("✅ Order data loaded:", response.data);
+      } else {
+        throw new Error(response.message || "Failed to load order data");
+      }
+    } catch (err: any) {
+      console.error("❌ Failed to load order data:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load order data"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Group items by member
+  const itemsByMember = orderData?.itemsByMember || {};
 
   // Calculate totals
   const getSubtotal = (items: any[]) =>
@@ -35,13 +104,13 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
   const getService = (subtotal: number) => Math.round(subtotal * SERVICE_RATE);
   const getTax = (subtotal: number) => Math.round(subtotal * TAX_RATE);
 
-  const memberTotals = groupMembers.map((member: any) => {
-    const items = cartByMember[member.id] || [];
+  const memberTotals = Object.values(itemsByMember).map((memberData: any) => {
+    const items = memberData.items || [];
     const subtotal = getSubtotal(items);
     const service = getService(subtotal);
     const tax = getTax(subtotal);
     return {
-      member,
+      member: memberData.member,
       items,
       subtotal,
       service,
@@ -54,234 +123,350 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
 
   // Get notes for each item
   const notes: Record<string, string> = {};
-  cart.forEach((item: any) => {
-    if (item.specialInstructions) {
-      notes[item.id] = item.specialInstructions;
-    }
-  });
+  if (orderData?.order?.items) {
+    orderData.order.items.forEach((item: any) => {
+      if (item.specialInstructions) {
+        notes[item.id] = item.specialInstructions;
+      }
+    });
+  }
 
   // Handle note edit
   const handleEditNote = (item: any) => {
     setEditingNoteId(item.id);
     setNoteInput(notes[item.id] || "");
   };
-  const handleNoteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNoteInput(e.target.value);
-  };
-  const handleNoteSave = (item: any) => {
-    updateCartItemNotes(item.id, noteInput);
-    setEditingNoteId(null);
-  };
-  const handleNoteKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    item: any
-  ) => {
-    if (e.key === "Enter") {
-      handleNoteSave(item);
-    } else if (e.key === "Escape") {
+
+  const handleSaveNote = async (item: any) => {
+    try {
+      // Update note in backend
+      await orderAPI.updateOrder(currentGroupId!, {
+        items: orderData.order.items.map((orderItem: any) => ({
+          ...orderItem,
+          specialInstructions:
+            orderItem.id === item.id
+              ? noteInput
+              : orderItem.specialInstructions,
+        })),
+        userId: user!.id,
+      });
+
       setEditingNoteId(null);
+      setNoteInput("");
+
+      // Reload order data to get updated notes (respects cooldown)
+      await loadOrderData();
+    } catch (error) {
+      console.error("Failed to update note:", error);
     }
   };
 
+  const handlePayment = async () => {
+    try {
+      setLoading(true);
+
+      if (isOwner) {
+        // Owner pays for entire group
+        console.log("Owner paying for entire group:", grandTotal);
+        // TODO: Implement payment gateway integration
+        alert(
+          `Payment of ₹${grandTotal.toFixed(
+            2
+          )} will be processed for the entire group.`
+        );
+      } else {
+        // Member pays their share
+        const userItems = memberTotals.find(
+          (m) => m.member.userId === user?.id
+        );
+        const userTotal = userItems?.total || 0;
+        console.log("Member paying their share:", userTotal);
+        // TODO: Implement payment gateway integration
+        alert(
+          `Payment of ₹${userTotal.toFixed(
+            2
+          )} will be processed for your share.`
+        );
+      }
+    } catch (error) {
+      console.error("Payment failed:", error);
+      setError("Payment failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  if (loading && !orderData) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+          <CoffeeLoader size="lg" message="Loading order details..." />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed z-50 max-w-[100vw]">
-      {/* Overlay */}
-      <div
-        className={`fixed inset-0 bg-black bg-opacity-40 z-50 transition-opacity duration-300 ${
-          open
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-        onClick={onClose}
-      />
-      {/* Drawer */}
-      <div
-        className={`fixed left-0 right-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${
-          open ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ minHeight: "70vh" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
-          <div className="font-bold text-lg">Order Summary</div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-warm-xl">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-6 border-b border-coffee-100 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-coffee-gradient rounded-full flex items-center justify-center">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-coffee-900">
+                Group Order Summary
+              </h2>
+              <p className="text-coffee-600 text-sm">
+                {groupInfo?.name || "Group Order"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadOrderData}
+              disabled={loading || Date.now() - lastApiCallTime < 5000}
+              className="p-2 hover:bg-coffee-50 rounded-lg transition-colors disabled:opacity-50"
+              title={
+                Date.now() - lastApiCallTime < 5000
+                  ? `Refresh available in ${Math.round(
+                      (5000 - (Date.now() - lastApiCallTime)) / 1000
+                    )}s`
+                  : "Refresh order data"
+              }
+            >
+              <RefreshCw
+                className={`w-5 h-5 text-coffee-600 ${
+                  loading ? "animate-spin" : ""
+                }`}
+              />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-coffee-50 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6 text-coffee-600" />
+            </button>
+          </div>
         </div>
-        {/* Table/Time Info */}
-        <div className="px-4 py-2 text-sm text-gray-600 flex items-center gap-2 border-b">
-          <span>{groupMembers.length} guests</span>
-          <span>•</span>
-          <span>{groupInfo.arrivalTime}</span>
-          <span>•</span>
-          <span>{groupInfo.departureTime}</span>
-        </div>
-        {/* Orders by Member */}
-        <div className="px-4 py-4 space-y-8">
-          {memberTotals.map(
-            ({ member, items, subtotal, service, tax, total }) => (
-              <div key={member.id}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold flex items-center gap-2">
-                    <span>👤</span>
-                    {member.name}'s order
-                  </div>
-                  <div className="font-bold">₹{total.toFixed(2)}</div>
-                </div>
-                {items.map((item: any) => (
-                  <div key={item.id} className="mb-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{item.name}</div>
-                        {item.addedBy === currentUserId && (
-                          <button
-                            className="text-xs text-[#4d3a00] underline mt-1 block"
-                            onClick={() => handleEditNote(item)}
-                          >
-                            {notes[item.id]
-                              ? "Edit instructions"
-                              : "Add instructions"}
-                          </button>
-                        )}
-                        {editingNoteId === item.id ? (
-                          <input
-                            className="border border-gray-300 rounded px-2 py-1 text-xs mt-1 w-32"
-                            placeholder="Add special instructions"
-                            value={noteInput}
-                            autoFocus
-                            onChange={handleNoteChange}
-                            onBlur={() => handleNoteSave(item)}
-                            onKeyDown={(e) => handleNoteKeyDown(e, item)}
-                          />
-                        ) : notes[item.id] ? (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {notes[item.id]}
-                          </div>
-                        ) : null}
+
+        {/* Error Display */}
+        {error && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex-shrink-0">
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Order Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {orderData ? (
+            <div className="space-y-6">
+              {/* Member Orders */}
+              {memberTotals.map((memberData) => (
+                <div
+                  key={memberData.member.userId}
+                  className="border border-coffee-200 rounded-xl p-4"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: memberData.member.color }}
+                      >
+                        {memberData.member.avatar}
                       </div>
-                      <div className="items-center">
-                        <div
-                          className={`flex items-center bg-[#4d3a00] rounded-lg py-1 ${
-                            item.addedBy === currentUserId
-                              ? "bg-[#4d3a00] text-white"
-                              : "bg-gray-200 text-black cursor-not-allowed"
-                          }`}
-                        >
-                          <button
-                            className={`rounded-l-md px-3 py-1 text-base font-bold m-0 h-auto ${
-                              item.addedBy === currentUserId
-                                ? "bg-[#4d3a00] text-white"
-                                : "bg-gray-200 text-black cursor-not-allowed"
-                            }`}
-                            disabled={item.addedBy !== currentUserId}
-                            onClick={() => {
-                              if (item.addedBy === currentUserId) {
-                                updateCartItemQuantity(
-                                  item.id,
-                                  item.quantity - 1
-                                );
-                              }
-                            }}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="px-2 text-base m-0 h-auto font-semibold text-white">
-                            {item.quantity}
-                          </span>
-                          <button
-                            className={`px-3 rounded-r-md py-1 text-base font-bold m-0 h-auto ${
-                              item.addedBy === currentUserId
-                                ? "bg-[#4d3a00] text-white"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                            disabled={item.addedBy !== currentUserId}
-                            onClick={() => {
-                              if (item.addedBy === currentUserId) {
-                                updateCartItemQuantity(
-                                  item.id,
-                                  item.quantity + 1
-                                );
-                              }
-                            }}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="text-right font-semibold ml-4">
-                          ₹{(item.price * item.quantity).toFixed(2)}
-                        </div>
+                      <div>
+                        <h3 className="font-semibold text-coffee-900">
+                          {memberData.member.name}
+                          {memberData.member.isAdmin && (
+                            <span className="ml-2 text-xs bg-coffee-100 text-coffee-700 px-2 py-1 rounded-full">
+                              Owner
+                            </span>
+                          )}
+                        </h3>
+                        <p className="text-sm text-coffee-600">
+                          {memberData.items.length} item
+                          {memberData.items.length !== 1 ? "s" : ""}
+                        </p>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <p className="font-bold text-coffee-900">
+                        ₹{memberData.total.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-coffee-600">
+                        Subtotal: ₹{memberData.subtotal.toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                ))}
-                {/* Subtotals */}
-                <div className="text-xs text-gray-500 mt-2 ml-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>₹{subtotal}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Service (10%):</span>
-                    <span>₹{service}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax (18%):</span>
-                    <span>₹{tax}</span>
+
+                  {/* Member's Items */}
+                  {memberData.items.length > 0 ? (
+                    <div className="space-y-3">
+                      {memberData.items.map((item: any) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between bg-coffee-50 rounded-lg p-3"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-coffee-900">
+                                {item.name}
+                              </h4>
+                              <span className="text-sm text-coffee-600">
+                                x{item.quantity}
+                              </span>
+                            </div>
+                            {item.specialInstructions && (
+                              <p className="text-sm text-coffee-600 mt-1">
+                                Note: {item.specialInstructions}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-coffee-900">
+                              ₹{(item.price * item.quantity).toFixed(2)}
+                            </span>
+                            {/* Edit note button - only for current user's items */}
+                            {user?.id === memberData.member.userId && (
+                              <button
+                                onClick={() => handleEditNote(item)}
+                                className="p-1 hover:bg-coffee-200 rounded transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4 text-coffee-600" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-coffee-500">
+                      No items added yet
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Note Editing Modal */}
+              {editingNoteId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+                    <h3 className="font-semibold text-coffee-900 mb-4">
+                      Edit Special Instructions
+                    </h3>
+                    <input
+                      type="text"
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      className="w-full border border-coffee-200 rounded-lg px-3 py-2 mb-4"
+                      placeholder="Enter special instructions..."
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingNoteId(null)}
+                        className="flex-1 px-4 py-2 border border-coffee-200 rounded-lg text-coffee-700"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleSaveNote(
+                            orderData.order.items.find(
+                              (item: any) => item.id === editingNoteId
+                            )
+                          )
+                        }
+                        className="flex-1 px-4 py-2 bg-coffee-gradient text-white rounded-lg"
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-coffee-600">No order data available</p>
+            </div>
           )}
         </div>
-        {/* Grand Total */}
-        <div className="px-4 py-2 border-t font-bold text-lg flex justify-between">
-          <span>Grand Total :</span>
-          <span>₹{grandTotal.toFixed(2)}</span>
-        </div>
-        {/* Info Box */}
-        <div className="px-4 py-4">
-          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 text-sm flex items-start gap-2">
-            <span className="mt-1">⚠️</span>
-            <span>
-              <span className="font-semibold">Important:</span> <br />
-              You will pay the bill for the entire order, your friends can pay
-              you through the app or pay you separately
-            </span>
-          </div>
-        </div>
-        {/* Payment Section */}
-        <div className="px-4 pb-6">
-          <button className="w-full bg-[#e9e7d7] text-black rounded-lg flex items-center justify-between px-4 py-3 font-semibold mb-2">
-            <span className="items-center ">
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Google_Pay_Logo.svg"
-                alt="Google Pay"
-                className="h-5 w-5"
-              />
-              <div className="flex items-left">
+
+        {/* Footer with Payment - Fixed */}
+        {orderData && (
+          <div className="border-t border-coffee-100 p-6 flex-shrink-0">
+            {/* Total Summary */}
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-lg font-semibold text-coffee-900">
+                Total
+              </span>
+              <span className="text-2xl font-bold text-coffee-900">
+                ₹{grandTotal.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Role-based Info */}
+            <div className="mb-4">
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 text-sm flex items-start gap-2">
+                <span className="mt-1">⚠️</span>
+                <span>
+                  <span className="font-semibold">Important:</span> <br />
+                  {isOwner
+                    ? "You will pay the bill for the entire group order. Your friends can pay you separately."
+                    : "You will pay only for your share of the order."}
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Button */}
+            <button
+              onClick={handlePayment}
+              disabled={loading}
+              className="w-full bg-coffee-gradient text-white rounded-xl flex items-center justify-between px-6 py-4 font-semibold mb-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-3">
+                <CreditCard className="w-5 h-5" />
                 <div className="text-left">
-                  <div className="text-xs">Pay using </div>
-                  Google Pay UPI
+                  <div className="text-sm">Pay using</div>
+                  <div>Google Pay UPI</div>
                 </div>
               </div>
-            </span>
-            <div className="bg-[#4d3a00] text-white rounded px-4 ml-2 items-center flex justify-between w-[200px] py-2">
-              <div className=" items-center">
-                <div className="font-semibold">₹{grandTotal.toFixed(2)}</div>
-                <div className="">Total</div>{" "}
+              <div className="text-right">
+                <div className="font-bold">
+                  ₹
+                  {isOwner
+                    ? grandTotal.toFixed(2)
+                    : memberTotals
+                        .find((m) => m.member.userId === user?.id)
+                        ?.total.toFixed(2) || "0.00"}
+                </div>
+                <div className="text-sm">
+                  {isOwner ? "Total" : "Your Share"}
+                </div>
               </div>
-              <div className="">Pay now &gt;</div>{" "}
-              {/* <div className="underline">Pay later &gt;</div> */}
+            </button>
+
+            {/* Role Indicator */}
+            <div className="flex items-center justify-center gap-2 text-sm text-coffee-600">
+              {isOwner ? (
+                <>
+                  <UserCheck className="w-4 h-4" />
+                  <span>You are the group owner</span>
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4" />
+                  <span>You are a group member</span>
+                </>
+              )}
             </div>
-          </button>
-          <div className="text-xs text-gray-600 mt-2 flex items-center gap-2">
-            <span className="text-green-600">●</span> Request accepted
-            <span className="text-gray-400">●</span> Non-Smoking
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

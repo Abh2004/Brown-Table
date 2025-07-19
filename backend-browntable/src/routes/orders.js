@@ -1,12 +1,12 @@
-const express = require('express');
-const Order = require('../models/Order');
-const Group = require('../models/Group');
-const generateId = require('../utils/generateId');
+const express = require("express");
+const Order = require("../models/Order");
+const Group = require("../models/Group");
+const generateId = require("../utils/generateId");
 
 const router = express.Router();
 
 // POST /api/orders/:groupId/update-order - Update group order
-router.post('/:groupId/update-order', async (req, res) => {
+router.post("/:groupId/update-order", async (req, res) => {
   try {
     const { groupId } = req.params;
     const { items, userId } = req.body;
@@ -15,14 +15,14 @@ router.post('/:groupId/update-order', async (req, res) => {
     if (!items || !Array.isArray(items)) {
       return res.status(400).json({
         success: false,
-        message: 'Items array is required'
+        message: "Items array is required",
       });
     }
 
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: "User ID is required",
       });
     }
 
@@ -31,45 +31,47 @@ router.post('/:groupId/update-order', async (req, res) => {
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: 'Group not found'
+        message: "Group not found",
       });
     }
 
     // Check if user is a member of the group
-    const isMember = group.groupMembers.some(member => member.userId === userId);
+    const isMember = group.groupMembers.some(
+      (member) => member.userId === userId
+    );
     if (!isMember) {
       return res.status(403).json({
         success: false,
-        message: 'User is not a member of this group'
+        message: "User is not a member of this group",
       });
     }
 
     // Find existing order or create new one
     let order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
-    
+
     if (!order) {
       order = new Order({
         id: generateId(),
         groupId,
         items: [],
         totalAmount: 0,
-        orderBy: userId
+        orderBy: userId,
       });
     }
 
     // Remove existing items from this user
-    order.items = order.items.filter(item => item.addedBy !== userId);
+    order.items = order.items.filter((item) => item.addedBy !== userId);
 
     // Add new items from this user
-    const userItems = items.map(item => ({
+    const userItems = items.map((item) => ({
       id: item.id,
       name: item.name,
       price: item.price,
       quantity: item.quantity,
       type: item.type,
       addedBy: userId,
-      specialInstructions: item.specialInstructions || '',
-      addedAt: new Date()
+      specialInstructions: item.specialInstructions || "",
+      addedAt: new Date(),
     }));
 
     order.items.push(...userItems);
@@ -79,7 +81,7 @@ router.post('/:groupId/update-order', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Order updated successfully',
+      message: "Order updated successfully",
       data: {
         order: {
           id: order.id,
@@ -89,32 +91,31 @@ router.post('/:groupId/update-order', async (req, res) => {
           serviceCharge: order.serviceCharge,
           tax: order.tax,
           finalAmount: order.finalAmount,
-          status: order.status
-        }
-      }
+          status: order.status,
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Update order error:', error);
+    console.error("Update order error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update order',
-      error: error.message
+      message: "Failed to update order",
+      error: error.message,
     });
   }
 });
 
 // GET /api/orders/:groupId - Get group order
-router.get('/:groupId', async (req, res) => {
+router.get("/:groupId", async (req, res) => {
   try {
     const { groupId } = req.params;
 
     const order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'No order found for this group'
+        message: "No order found for this group",
       });
     }
 
@@ -124,10 +125,10 @@ router.get('/:groupId', async (req, res) => {
     // Group items by member
     const itemsByMember = {};
     if (group) {
-      group.groupMembers.forEach(member => {
+      group.groupMembers.forEach((member) => {
         itemsByMember[member.userId] = {
           member,
-          items: order.items.filter(item => item.addedBy === member.userId)
+          items: order.items.filter((item) => item.addedBy === member.userId),
         };
       });
     }
@@ -146,29 +147,30 @@ router.get('/:groupId', async (req, res) => {
           finalAmount: order.finalAmount,
           status: order.status,
           paymentStatus: order.paymentStatus,
-          estimatedTime: order.estimatedTime
+          estimatedTime: order.estimatedTime,
         },
         itemsByMember,
-        group: group ? {
-          id: group.id,
-          name: group.name,
-          groupMembers: group.groupMembers
-        } : null
-      }
+        group: group
+          ? {
+              id: group.id,
+              name: group.name,
+              groupMembers: group.groupMembers,
+            }
+          : null,
+      },
     });
-
   } catch (error) {
-    console.error('Get order error:', error);
+    console.error("Get order error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get order',
-      error: error.message
+      message: "Failed to get order",
+      error: error.message,
     });
   }
 });
 
 // PUT /api/orders/:orderId/status - Update order status
-router.put('/:orderId/status', async (req, res) => {
+router.put("/:orderId/status", async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, paymentStatus } = req.body;
@@ -177,7 +179,7 @@ router.put('/:orderId/status', async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found'
+        message: "Order not found",
       });
     }
 
@@ -193,41 +195,40 @@ router.put('/:orderId/status', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Order status updated successfully',
-      data: { order }
+      message: "Order status updated successfully",
+      data: { order },
     });
-
   } catch (error) {
-    console.error('Update order status error:', error);
+    console.error("Update order status error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update order status',
-      error: error.message
+      message: "Failed to update order status",
+      error: error.message,
     });
   }
 });
 
 // DELETE /api/orders/:groupId/item/:itemId - Remove item from order
-router.delete('/:groupId/item/:itemId', async (req, res) => {
+router.delete("/:groupId/item/:itemId", async (req, res) => {
   try {
     const { groupId, itemId } = req.params;
     const { userId } = req.body;
 
     const order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found'
+        message: "Order not found",
       });
     }
 
     // Find item and check if user can remove it
-    const itemIndex = order.items.findIndex(item => item.id === itemId);
+    const itemIndex = order.items.findIndex((item) => item.id === itemId);
     if (itemIndex === -1) {
       return res.status(404).json({
         success: false,
-        message: 'Item not found in order'
+        message: "Item not found in order",
       });
     }
 
@@ -235,7 +236,7 @@ router.delete('/:groupId/item/:itemId', async (req, res) => {
     if (item.addedBy !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'You can only remove your own items'
+        message: "You can only remove your own items",
       });
     }
 
@@ -245,18 +246,17 @@ router.delete('/:groupId/item/:itemId', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Item removed from order',
-      data: { order }
+      message: "Item removed from order",
+      data: { order },
     });
-
   } catch (error) {
-    console.error('Remove item error:', error);
+    console.error("Remove item error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to remove item',
-      error: error.message
+      message: "Failed to remove item",
+      error: error.message,
     });
   }
 });
 
-module.exports = router; 
+module.exports = router;

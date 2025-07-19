@@ -39,6 +39,7 @@ interface BookingContextType {
   currentGroupId: string | null;
   setCurrentGroupId: (groupId: string | null) => void;
   syncOrderWithBackend: () => Promise<void>;
+  refreshOrderData: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -67,11 +68,12 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
   const [selectedDate, setSelectedDate] = useState("");
   const [arrivalTime, setArrivalTime] = useState("");
   const [checkoutTime, setCheckoutTime] = useState("");
-  
+
   // Backend integration state
   const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastApiCallTime, setLastApiCallTime] = useState<number>(0);
 
   // Update totals whenever cart changes
   useEffect(() => {
@@ -106,18 +108,45 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
     return () => clearTimeout(timeoutId);
   }, [cart, currentGroupId, user]);
 
+  // Load group order data when group changes
+  useEffect(() => {
+    if (currentGroupId && user) {
+      loadGroupOrderData();
+    }
+  }, [currentGroupId, user]);
+
+  // No automatic periodic refresh - only manual refresh via buttons
+
   const syncOrderWithBackend = async () => {
     if (!currentGroupId || !user) return;
+
+    // Check cooldown (5 seconds between API calls)
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCallTime;
+    if (timeSinceLastCall < 5000) {
+      console.log("⏳ Sync skipped - cooldown active:", {
+        timeSinceLastCall: Math.round(timeSinceLastCall / 1000),
+        remainingCooldown: Math.round((5000 - timeSinceLastCall) / 1000),
+      });
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
+      setLastApiCallTime(now);
 
       // Filter cart items for current user only
-      const userItems = cart.filter(item => item.addedBy === user.id);
+      const userItems = cart.filter((item) => item.addedBy === user.id);
+
+      console.log("🔄 Syncing user order to backend:", {
+        userId: user.id,
+        items: userItems.length,
+        groupId: currentGroupId,
+      });
 
       await orderAPI.updateOrder(currentGroupId, {
-        items: userItems.map(item => ({
+        items: userItems.map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
@@ -130,9 +159,67 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
       });
 
       console.log("✅ Order synced with backend successfully");
+      // Note: No immediate fetch - users can manually refresh when needed
     } catch (err: any) {
       console.error("❌ Failed to sync order with backend:", err);
       setError(err.response?.data?.message || "Failed to sync order");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadGroupOrderData = async () => {
+    if (!currentGroupId || !user) return;
+
+    // Check cooldown (5 seconds between API calls)
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCallTime;
+    if (timeSinceLastCall < 5000) {
+      console.log("⏳ API call skipped - cooldown active:", {
+        timeSinceLastCall: Math.round(timeSinceLastCall / 1000),
+        remainingCooldown: Math.round((5000 - timeSinceLastCall) / 1000),
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setLastApiCallTime(now);
+
+      console.log("🔄 Loading group order data from DB...");
+
+      const response = await orderAPI.getGroupOrder(currentGroupId);
+
+      if (response.success) {
+        // Update cart with all group members' items
+        const allItems = response.data.order?.items || [];
+        const previousCartLength = cart.length;
+
+        setCart(allItems);
+
+        console.log("✅ Group order data loaded successfully:", {
+          totalItems: allItems.length,
+          previousItems: previousCartLength,
+          groupId: currentGroupId,
+          orderId: response.data.order?.id,
+        });
+
+        // Log breakdown by user
+        const itemsByUser = allItems.reduce((acc: any, item: any) => {
+          acc[item.addedBy] = (acc[item.addedBy] || 0) + 1;
+          return acc;
+        }, {});
+
+        console.log("📊 Items breakdown by user:", itemsByUser);
+      } else {
+        throw new Error(response.message || "Failed to load group order data");
+      }
+    } catch (err: any) {
+      console.error("❌ Failed to load group order data:", err);
+      setError(
+        err.response?.data?.message || "Failed to load group order data"
+      );
     } finally {
       setLoading(false);
     }
@@ -208,6 +295,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
     currentGroupId,
     setCurrentGroupId,
     syncOrderWithBackend,
+    refreshOrderData: loadGroupOrderData,
     loading,
     error,
   };
