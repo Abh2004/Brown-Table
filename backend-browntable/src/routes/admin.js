@@ -300,6 +300,85 @@ router.get("/tables", adminAuthMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/upcoming-orders - Get upcoming orders for next 30 minutes
+router.get("/upcoming-orders", adminAuthMiddleware, async (req, res) => {
+  try {
+    // Get all orders and groups
+    const orders = await Order.find().sort({ createdAt: -1 });
+    const groups = await Group.find();
+
+    // Create a map of groups for easy lookup
+    const groupsMap = {};
+    groups.forEach((group) => {
+      groupsMap[group.id] = group;
+    });
+
+    // Process upcoming orders
+    const upcomingOrders = processUpcomingOrders(orders, groupsMap);
+
+    res.json({
+      success: true,
+      data: { upcomingOrders },
+    });
+  } catch (error) {
+    console.error("Get upcoming orders error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch upcoming orders",
+      error: error.message,
+    });
+  }
+});
+
+// PUT /api/admin/order/:orderId/status - Update order status
+router.put("/order/:orderId/status", adminAuthMiddleware, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Validate status
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "preparing",
+      "ready",
+      "served",
+      "cancelled",
+    ];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order status",
+      });
+    }
+
+    // Update order status
+    order.status = status;
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order status updated successfully",
+      data: { order },
+    });
+  } catch (error) {
+    console.error("Update order status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update order status",
+      error: error.message,
+    });
+  }
+});
+
 // Helper functions
 function generateTableStatus(tables) {
   // Use real table data from database
@@ -384,30 +463,47 @@ function processUpcomingOrders(orders, groupsMap) {
 
   return orders
     .filter((order) => {
-      const orderTime = new Date(order.createdAt);
-      return orderTime >= now && orderTime <= thirtyMinutesFromNow;
+      // Calculate when the order will be ready based on estimated time
+      const orderCreatedAt = new Date(order.createdAt);
+      const estimatedReadyTime = new Date(
+        orderCreatedAt.getTime() + (order.estimatedTime || 30) * 60 * 1000
+      );
+
+      // Include orders that will be ready within the next 30 minutes
+      return (
+        estimatedReadyTime >= now &&
+        estimatedReadyTime <= thirtyMinutesFromNow &&
+        order.status !== "served" &&
+        order.status !== "cancelled"
+      );
     })
     .map((order) => {
       const group = groupsMap[order.groupId];
+      const orderCreatedAt = new Date(order.createdAt);
+      const estimatedReadyTime = new Date(
+        orderCreatedAt.getTime() + (order.estimatedTime || 30) * 60 * 1000
+      );
+
       return {
         id: order._id,
         groupId: order.groupId,
-        guestName: group?.adminId || "Unknown",
+        guestName: group?.guestName || group?.groupAdminId || "Unknown",
         table: group?.table || "N/A",
         orderSummary:
           order.items
             ?.map((item) => `${item.name} x${item.quantity}`)
             .join(", ") || "No items",
-        totalAmount:
-          order.items?.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          ) || 0,
+        totalAmount: order.finalAmount || 0,
         createdAt: order.createdAt,
+        estimatedReadyTime: estimatedReadyTime,
         status: order.status || "pending",
+        estimatedTime: order.estimatedTime || 30,
+        items: order.items || [],
       };
     })
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    .sort(
+      (a, b) => new Date(a.estimatedReadyTime) - new Date(b.estimatedReadyTime)
+    );
 }
 
 module.exports = router;

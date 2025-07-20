@@ -299,6 +299,62 @@ const seedData = async () => {
           },
         ],
       },
+      {
+        id: "group_004",
+        name: "Coffee Club Meetup",
+        groupAdminId: users[3].id,
+        inviteCode: "COFFEE004",
+        date: new Date().toISOString().split("T")[0],
+        arrivalTime: "3:00 PM",
+        departureTime: "5:00 PM",
+        status: "active",
+        discount: 0,
+        groupMembers: [
+          {
+            userId: users[3].id,
+            name: users[3].name,
+            avatar: users[3].avatar,
+            color: users[3].color,
+            isAdmin: true,
+            hasAccepted: true,
+          },
+          {
+            userId: users[0].id,
+            name: users[0].name,
+            avatar: users[0].avatar,
+            color: users[0].color,
+            hasAccepted: true,
+          },
+        ],
+      },
+      {
+        id: "group_005",
+        name: "Study Group",
+        groupAdminId: users[4].id,
+        inviteCode: "STUDY005",
+        date: new Date().toISOString().split("T")[0],
+        arrivalTime: "2:00 PM",
+        departureTime: "4:00 PM",
+        status: "active",
+        discount: 5,
+        groupMembers: [
+          {
+            userId: users[4].id,
+            name: users[4].name,
+            avatar: users[4].avatar,
+            color: users[4].color,
+            isAdmin: true,
+            hasAccepted: true,
+          },
+          {
+            userId: users[1].id,
+            name: users[1].name,
+            avatar: users[1].avatar,
+            color: users[1].color,
+            hasAccepted: true,
+          },
+        ],
+      },
     ];
 
     const groups = await Group.insertMany(groupData);
@@ -439,7 +495,7 @@ const seedData = async () => {
         arrivalTime: "7:00 AM",
         departureTime: "8:00 AM",
         // table: "10",
-        status: "pending",
+        status: "confirmed",
         discount: 15,
         guestName: "Sophia's Sweet 16",
         guestCount: 12,
@@ -543,7 +599,8 @@ const seedData = async () => {
       "requests"
     );
 
-    // Seed Orders
+    // Seed Orders with proper timestamps for upcoming orders testing
+    const now = new Date();
     const orderData = [
       {
         id: "order_001",
@@ -570,6 +627,8 @@ const seedData = async () => {
           },
         ],
         status: "pending",
+        estimatedTime: 25, // Will be ready in 25 minutes
+        createdAt: new Date(now.getTime() - 5 * 60 * 1000), // Ordered 5 minutes ago
       },
       {
         id: "order_002",
@@ -595,7 +654,9 @@ const seedData = async () => {
             specialInstructions: "Dressing on the side",
           },
         ],
-        status: "pending",
+        status: "preparing",
+        estimatedTime: 15, // Will be ready in 15 minutes
+        createdAt: new Date(now.getTime() - 15 * 60 * 1000), // Ordered 15 minutes ago
       },
       {
         id: "order_003",
@@ -621,7 +682,65 @@ const seedData = async () => {
             specialInstructions: "",
           },
         ],
-        status: "served",
+        status: "ready",
+        estimatedTime: 5, // Will be ready in 5 minutes
+        createdAt: new Date(now.getTime() - 25 * 60 * 1000), // Ordered 25 minutes ago
+      },
+      {
+        id: "order_004",
+        groupId: groups[3].id,
+        orderBy: users[3].id,
+        items: [
+          {
+            id: menuItems[0].id,
+            name: menuItems[0].name,
+            price: menuItems[0].price,
+            quantity: 3,
+            type: menuItems[0].type,
+            addedBy: users[3].id,
+            specialInstructions: "Extra strong",
+          },
+          {
+            id: menuItems[3].id,
+            name: menuItems[3].name,
+            price: menuItems[3].price,
+            quantity: 1,
+            type: menuItems[3].type,
+            addedBy: users[0].id,
+            specialInstructions: "Medium rare",
+          },
+        ],
+        status: "pending",
+        estimatedTime: 20, // Will be ready in 20 minutes
+        createdAt: new Date(now.getTime() - 10 * 60 * 1000), // Ordered 10 minutes ago
+      },
+      {
+        id: "order_005",
+        groupId: groups[4].id,
+        orderBy: users[4].id,
+        items: [
+          {
+            id: menuItems[2].id,
+            name: menuItems[2].name,
+            price: menuItems[2].price,
+            quantity: 2,
+            type: menuItems[2].type,
+            addedBy: users[4].id,
+            specialInstructions: "Warm",
+          },
+          {
+            id: menuItems[1].id,
+            name: menuItems[1].name,
+            price: menuItems[1].price,
+            quantity: 1,
+            type: menuItems[1].type,
+            addedBy: users[1].id,
+            specialInstructions: "Extra foam",
+          },
+        ],
+        status: "served", // This won't show in upcoming orders
+        estimatedTime: 30,
+        createdAt: new Date(now.getTime() - 60 * 60 * 1000), // Ordered 1 hour ago
       },
     ];
 
