@@ -418,7 +418,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
                   <span className="font-semibold">Important:</span> <br />
                   {isOwner
                     ? "You will pay the bill for the entire group order. Your friends can pay you separately."
-                    : "You will pay only for your share of the order."}
+                    : `You will pay only for your share to ${groupInfo?.adminId} of the order.`}
                 </span>
               </div>
             </div>
@@ -446,7 +446,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
                         ?.total.toFixed(2) || "0.00"}
                 </div>
                 <div className="text-sm">
-                  {isOwner ? "Total" : "Your Share"}
+                  {isOwner ? "Total" : "Pay Your Share"}
                 </div>
               </div>
             </button>

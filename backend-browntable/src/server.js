@@ -13,6 +13,8 @@ const groupRoutes = require("./routes/groups");
 const menuRoutes = require("./routes/menu");
 const orderRoutes = require("./routes/orders");
 const inviteRoutes = require("./routes/invites");
+const adminRoutes = require("./routes/admin");
+const weatherRoutes = require("./routes/weather");
 
 const app = express();
 
@@ -44,6 +46,8 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/invites", inviteRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/weather", weatherRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

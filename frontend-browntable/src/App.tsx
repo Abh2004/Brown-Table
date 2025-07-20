@@ -20,97 +20,127 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { BookingProvider } from "./context/BookingContext";
 import { GroupMembersProvider } from "./context/groupMemebersContext";
+import { AdminProvider } from "./context/AdminContext";
+import { WeatherProvider } from "./context/WeatherContext";
 import Cart from "./components/cart";
+
+// Admin Components
+import AdminLogin from "./admin/AdminLogin";
+import AdminDashboard from "./admin/AdminDashboard";
+import AdminMessages from "./admin/AdminMessages";
 
 function App() {
   return (
     <AuthProvider>
-      <GroupMembersProvider>
-        <BookingProvider>
-          <Router>
-            <div className="min-h-screen bg-coffee-50 bg-coffee-pattern">
-              <Header />
-              <main>
+      <AdminProvider>
+        <WeatherProvider>
+          <GroupMembersProvider>
+            <BookingProvider>
+              <Router>
                 <Routes>
-                  {/* Public Routes */}
-                  <Route path="/auth/login" element={<LoginPage />} />
-                  <Route path="/auth/signup" element={<SignupPage />} />
+                  {/* Admin Routes */}
+                  <Route path="/admin-login" element={<AdminLogin />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/messages" element={<AdminMessages />} />
 
-                  {/* Protected Routes */}
+                  {/* Main App Routes */}
                   <Route
-                    path="/"
+                    path="/*"
                     element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/booking"
-                    element={
-                      <ProtectedRoute>
-                        <BookingInterface />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/menu"
-                    element={
-                      <ProtectedRoute>
-                        <RestaurantMenu />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/group-order"
-                    element={
-                      <ProtectedRoute>
-                        <GroupOrder />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/invite"
-                    element={
-                      <ProtectedRoute>
-                        <InvitePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/join" element={<JoinGroupPage />} />
-                  <Route
-                    path="/notifications"
-                    element={
-                      <ProtectedRoute>
-                        <NotificationsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/groups"
-                    element={
-                      <ProtectedRoute>
-                        <GroupsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/cart"
-                    element={
-                      <ProtectedRoute>
-                        <Cart />
-                      </ProtectedRoute>
-                    }
-                  />
+                      <div className="min-h-screen bg-coffee-50 bg-coffee-pattern">
+                        <Header />
+                        <main>
+                          <Routes>
+                            {/* Public Routes */}
+                            <Route path="/auth/login" element={<LoginPage />} />
+                            <Route
+                              path="/auth/signup"
+                              element={<SignupPage />}
+                            />
 
-                  {/* Catch all redirect */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                            {/* Protected Routes */}
+                            <Route
+                              path="/"
+                              element={
+                                <ProtectedRoute>
+                                  <Dashboard />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/booking"
+                              element={
+                                <ProtectedRoute>
+                                  <BookingInterface />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/menu"
+                              element={
+                                <ProtectedRoute>
+                                  <RestaurantMenu />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/group-order"
+                              element={
+                                <ProtectedRoute>
+                                  <GroupOrder />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/invite"
+                              element={
+                                <ProtectedRoute>
+                                  <InvitePage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route path="/join" element={<JoinGroupPage />} />
+                            <Route
+                              path="/notifications"
+                              element={
+                                <ProtectedRoute>
+                                  <NotificationsPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/groups"
+                              element={
+                                <ProtectedRoute>
+                                  <GroupsPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/cart"
+                              element={
+                                <ProtectedRoute>
+                                  <Cart />
+                                </ProtectedRoute>
+                              }
+                            />
+
+                            {/* Catch all redirect */}
+                            <Route
+                              path="*"
+                              element={<Navigate to="/" replace />}
+                            />
+                          </Routes>
+                        </main>
+                      </div>
+                    }
+                  />
                 </Routes>
-              </main>
-            </div>
-          </Router>
-        </BookingProvider>
-      </GroupMembersProvider>
+              </Router>
+            </BookingProvider>
+          </GroupMembersProvider>
+        </WeatherProvider>
+      </AdminProvider>
     </AuthProvider>
   );
 }

@@ -426,4 +426,88 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
+// POST /api/auth/admin-login - Admin login
+router.post("/admin-login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validation
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username and password are required",
+      });
+    }
+
+    // Import Admin model
+    const Admin = require("../models/Admin");
+
+    // Find admin by username
+    const admin = await Admin.findOne({ username: username.toLowerCase() });
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Check if admin is active
+    if (!admin.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated",
+      });
+    }
+
+    // Check password
+    const isPasswordValid = await admin.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
+
+    // Generate admin JWT token with admin role
+    const token = jwt.sign(
+      {
+        userId: admin._id,
+        role: admin.role,
+        username: admin.username,
+        permissions: admin.permissions,
+      },
+      process.env.JWT_SECRET || "fallback_secret",
+      { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
+    );
+
+    res.json({
+      success: true,
+      message: "Admin login successful",
+      data: {
+        admin: {
+          id: admin._id,
+          username: admin.username,
+          role: admin.role,
+          name: admin.name,
+          email: admin.email,
+          permissions: admin.permissions,
+          avatar: admin.avatar,
+        },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Admin login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Admin login failed",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
