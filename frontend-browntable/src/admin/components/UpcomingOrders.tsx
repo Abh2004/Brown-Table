@@ -1,5 +1,12 @@
 import React from "react";
-import { Coffee, Clock, MapPin, DollarSign, CheckCircle } from "lucide-react";
+import {
+  Coffee,
+  Clock,
+  MapPin,
+  DollarSign,
+  CheckCircle,
+  Timer,
+} from "lucide-react";
 
 interface Order {
   id: string;
@@ -9,7 +16,10 @@ interface Order {
   orderSummary: string;
   totalAmount: number;
   createdAt: string;
+  estimatedReadyTime: string;
   status: string;
+  estimatedTime: number;
+  items: any[];
 }
 
 interface UpcomingOrdersProps {
@@ -26,12 +36,32 @@ const UpcomingOrders: React.FC<UpcomingOrdersProps> = ({ orders, onClear }) => {
     });
   };
 
+  const getTimeUntilReady = (estimatedReadyTime: string) => {
+    const now = new Date();
+    const readyTime = new Date(estimatedReadyTime);
+    const diffInMinutes = Math.ceil(
+      (readyTime.getTime() - now.getTime()) / (1000 * 60)
+    );
+
+    if (diffInMinutes <= 0) {
+      return "Ready now";
+    } else if (diffInMinutes === 1) {
+      return "1 minute";
+    } else {
+      return `${diffInMinutes} minutes`;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
         return "bg-yellow-100 text-yellow-800";
-      case "handled":
+      case "preparing":
+        return "bg-blue-100 text-blue-800";
+      case "ready":
         return "bg-green-100 text-green-800";
+      case "served":
+        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -94,7 +124,13 @@ const UpcomingOrders: React.FC<UpcomingOrdersProps> = ({ orders, onClear }) => {
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        <span>{formatTime(order.createdAt)}</span>
+                        <span>Ordered: {formatTime(order.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Timer className="w-4 h-4" />
+                        <span className="font-medium text-coffee-700">
+                          {getTimeUntilReady(order.estimatedReadyTime)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -119,6 +155,24 @@ const UpcomingOrders: React.FC<UpcomingOrdersProps> = ({ orders, onClear }) => {
 
                 {/* Action Button */}
                 {order.status === "pending" && (
+                  <button
+                    onClick={() => onClear(order.id)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Start Preparing
+                  </button>
+                )}
+                {order.status === "preparing" && (
+                  <button
+                    onClick={() => onClear(order.id)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Mark as Ready
+                  </button>
+                )}
+                {order.status === "ready" && (
                   <button
                     onClick={() => onClear(order.id)}
                     className="w-full bg-coffee-600 hover:bg-coffee-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"

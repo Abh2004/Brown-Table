@@ -1,40 +1,43 @@
-const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const Group = require('../models/Group');
-const User = require('../models/User');
-const Order = require('../models/Order');
-const generateId = require('../utils/generateId');
-const { authMiddleware } = require('../middleware/auth');
+const express = require("express");
+const { v4: uuidv4 } = require("uuid");
+const Group = require("../models/Group");
+const User = require("../models/User");
+const Order = require("../models/Order");
+const generateId = require("../utils/generateId");
+const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
 
 // GET /api/groups/my-groups - Get all groups for authenticated user
-router.get('/my-groups', authMiddleware, async (req, res) => {
+router.get("/my-groups", authMiddleware, async (req, res) => {
   try {
     const user = req.user;
 
     // Find all groups where user is either admin or member
     const groups = await Group.find({
-      $or: [
-        { adminId: user.id },
-        { 'groupMembers.userId': user.id }
-      ]
+      $or: [{ groupAdminId: user.id }, { "groupMembers.userId": user.id }],
     }).sort({ createdAt: -1 });
 
     // Get order data for each group
     const groupsWithOrders = await Promise.all(
       groups.map(async (group) => {
-        const order = await Order.findOne({ groupId: group.id }).sort({ createdAt: -1 });
-        
+        const order = await Order.findOne({
+          groupId: group._id.toString(),
+        }).sort({
+          createdAt: -1,
+        });
+
         // Calculate member count and user's role
         const memberCount = group.groupMembers.length;
-        const isAdmin = group.adminId === user.id;
-        const userMember = group.groupMembers.find(member => member.userId === user.id);
-        
+        const isAdmin = group.groupAdminId === user.id;
+        const userMember = group.groupMembers.find(
+          (member) => member.userId === user.id
+        );
+
         return {
-          id: group.id,
+          id: group._id,
           name: group.name,
-          adminId: group.adminId,
+          groupAdminId: group.groupAdminId,
           inviteCode: group.inviteCode,
           arrivalTime: group.arrivalTime,
           departureTime: group.departureTime,
@@ -46,17 +49,19 @@ router.get('/my-groups', authMiddleware, async (req, res) => {
           memberCount,
           maxMembers: group.maxMembers,
           isAdmin,
-          userRole: isAdmin ? 'admin' : 'member',
+          userRole: isAdmin ? "admin" : "member",
           groupMembers: group.groupMembers,
-          order: order ? {
-            id: order.id,
-            totalAmount: order.totalAmount,
-            finalAmount: order.finalAmount,
-            status: order.status,
-            itemCount: order.items.length
-          } : null,
+          order: order
+            ? {
+                id: order.id,
+                totalAmount: order.totalAmount,
+                finalAmount: order.finalAmount,
+                status: order.status,
+                itemCount: order.items.length,
+              }
+            : null,
           createdAt: group.createdAt,
-          updatedAt: group.updatedAt
+          updatedAt: group.updatedAt,
         };
       })
     );
@@ -65,22 +70,21 @@ router.get('/my-groups', authMiddleware, async (req, res) => {
       success: true,
       data: {
         groups: groupsWithOrders,
-        count: groupsWithOrders.length
-      }
+        count: groupsWithOrders.length,
+      },
     });
-
   } catch (error) {
-    console.error('Get user groups error:', error);
+    console.error("Get user groups error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get user groups',
-      error: error.message
+      message: "Failed to get user groups",
+      error: error.message,
     });
   }
 });
 
 // POST /api/groups/create-group - Create a new group
-router.post('/create-group', async (req, res) => {
+router.post("/create-group", async (req, res) => {
   try {
     const {
       adminName,
@@ -88,105 +92,107 @@ router.post('/create-group', async (req, res) => {
       arrivalTime,
       departureTime,
       date,
-      guestCount = 1
+      guestCount = 1,
     } = req.body;
 
     // Validation
     if (!adminName || !adminId || !arrivalTime || !departureTime || !date) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: adminName, adminId, arrivalTime, departureTime, date'
+        message:
+          "Missing required fields: adminName, adminId, arrivalTime, departureTime, date",
       });
     }
 
-    // Generate unique IDs
-    const groupId = generateId();
+    // Generate unique invite code
     const inviteCode = generateId(8);
 
     // Create or find admin user
-    let adminUser = await User.findOne({ id: adminId });
+    let adminUser = await User.findById(adminId);
     if (!adminUser) {
+      // Create a guest user for group creation
       adminUser = new User({
-        id: adminId,
         name: adminName,
         avatar: adminName.charAt(0).toUpperCase(),
-        color: 'bg-blue-500'
+        color: "bg-blue-500",
+        // phone and password are optional now
       });
       await adminUser.save();
     }
 
     // Create group
     const group = new Group({
-      id: groupId,
       name: `${adminName}'s Group Order`,
-      adminId,
+      groupAdminId: adminUser._id.toString(), // Convert to string to match schema
       inviteCode,
       arrivalTime,
       departureTime,
       date,
-      groupMembers: [{
-        userId: adminId,
-        name: adminName,
-        avatar: adminUser.avatar,
-        color: adminUser.color,
-        isAdmin: true,
-        hasAccepted: true
-      }],
-      maxMembers: Math.max(guestCount, 10)
+      groupMembers: [
+        {
+          userId: adminUser._id.toString(), // Convert to string
+          name: adminName,
+          avatar: adminUser.avatar,
+          color: adminUser.color,
+          isAdmin: true,
+          hasAccepted: true,
+        },
+      ],
+      maxMembers: Math.max(guestCount, 10),
     });
 
     await group.save();
 
     // Create initial empty order for the group
     const order = new Order({
-      id: generateId(),
-      groupId,
+      groupId: group._id.toString(), // Convert to string to match schema
       items: [],
       totalAmount: 0,
-      orderBy: adminId
+      orderBy: adminUser._id.toString(), // Convert to string
     });
 
     await order.save();
 
     res.status(201).json({
       success: true,
-      message: 'Group created successfully',
+      message: "Group created successfully",
       data: {
         group: {
-          id: group.id,
+          id: group._id,
           name: group.name,
-          adminId: group.adminId,
+          groupAdminId: group.groupAdminId,
           inviteCode: group.inviteCode,
           arrivalTime: group.arrivalTime,
           departureTime: group.departureTime,
           date: group.date,
           groupMembers: group.groupMembers,
-          inviteLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/join?code=${group.inviteCode}`
+          inviteLink: `${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+          }/join?code=${group.inviteCode}`,
         },
-        orderId: order.id
-      }
+        orderId: order._id,
+      },
     });
-
   } catch (error) {
-    console.error('Create group error:', error);
+    console.error("Create group error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create group',
-      error: error.message
+      message: "Failed to create group",
+      error: error.message,
     });
   }
 });
 
 // GET /api/groups/:groupId - Get group details
-router.get('/:groupId', async (req, res) => {
+router.get("/:groupId", async (req, res) => {
   try {
     const { groupId } = req.params;
 
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: 'Group not found'
+        message: "Group not found",
       });
     }
 
@@ -194,9 +200,9 @@ router.get('/:groupId', async (req, res) => {
       success: true,
       data: {
         group: {
-          id: group.id,
+          id: group._id,
           name: group.name,
-          adminId: group.adminId,
+          groupAdminId: group.groupAdminId,
           arrivalTime: group.arrivalTime,
           departureTime: group.departureTime,
           date: group.date,
@@ -204,38 +210,46 @@ router.get('/:groupId', async (req, res) => {
           discount: group.discount,
           groupMembers: group.groupMembers,
           status: group.status,
-          inviteLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/join?code=${group.inviteCode}`
-        }
-      }
+          inviteLink: `${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+          }/join?code=${group.inviteCode}`,
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Get group error:', error);
+    console.error("Get group error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get group details',
-      error: error.message
+      message: "Failed to get group details",
+      error: error.message,
     });
   }
 });
 
 // PUT /api/groups/:groupId/update - Update group details
-router.put('/:groupId/update', async (req, res) => {
+router.put("/:groupId/update", async (req, res) => {
   try {
     const { groupId } = req.params;
     const updates = req.body;
 
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: 'Group not found'
+        message: "Group not found",
       });
     }
 
     // Update allowed fields
-    const allowedUpdates = ['name', 'arrivalTime', 'departureTime', 'date', 'table', 'discount'];
-    allowedUpdates.forEach(field => {
+    const allowedUpdates = [
+      "name",
+      "arrivalTime",
+      "departureTime",
+      "date",
+      "table",
+      "discount",
+    ];
+    allowedUpdates.forEach((field) => {
       if (updates[field] !== undefined) {
         group[field] = updates[field];
       }
@@ -245,41 +259,48 @@ router.put('/:groupId/update', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Group updated successfully',
-      data: { group }
+      message: "Group updated successfully",
+      data: { group },
     });
-
   } catch (error) {
-    console.error('Update group error:', error);
+    console.error("Update group error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update group',
-      error: error.message
+      message: "Failed to update group",
+      error: error.message,
     });
   }
 });
 
 // GET /api/groups/:groupId/group-order - Get group order details
-router.get('/:groupId/group-order', async (req, res) => {
+router.get("/:groupId/group-order", async (req, res) => {
   try {
     const { groupId } = req.params;
 
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: 'Group not found'
+        message: "Group not found",
       });
     }
 
-    const order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
-    
+    const order = await Order.findOne({ groupId: group._id.toString() }).sort({
+      createdAt: -1,
+    });
+
     // Group items by member
     const itemsByMember = {};
-    group.groupMembers.forEach(member => {
+    group.groupMembers.forEach((member) => {
       itemsByMember[member.userId] = {
         member,
-        items: order ? order.items.filter(item => item.addedBy === member.userId) : []
+        items: order
+          ? order.items.filter(
+              (item) =>
+                item.addedBy === member.userId ||
+                item.addedBy === member.userId.toString()
+            )
+          : [],
       };
     });
 
@@ -287,40 +308,41 @@ router.get('/:groupId/group-order', async (req, res) => {
       success: true,
       data: {
         group: {
-          id: group.id,
+          id: group._id,
           name: group.name,
-          adminId: group.adminId,
+          groupAdminId: group.groupAdminId,
           groupMembers: group.groupMembers,
           arrivalTime: group.arrivalTime,
           departureTime: group.departureTime,
           table: group.table,
-          discount: group.discount
+          discount: group.discount,
         },
-        order: order ? {
-          id: order.id,
-          items: order.items,
-          totalAmount: order.totalAmount,
-          serviceCharge: order.serviceCharge,
-          tax: order.tax,
-          finalAmount: order.finalAmount,
-          status: order.status
-        } : null,
-        itemsByMember
-      }
+        order: order
+          ? {
+              id: order._id,
+              items: order.items,
+              totalAmount: order.totalAmount,
+              serviceCharge: order.serviceCharge,
+              tax: order.tax,
+              finalAmount: order.finalAmount,
+              status: order.status,
+            }
+          : null,
+        itemsByMember,
+      },
     });
-
   } catch (error) {
-    console.error('Get group order error:', error);
+    console.error("Get group order error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get group order',
-      error: error.message
+      message: "Failed to get group order",
+      error: error.message,
     });
   }
 });
 
 // DELETE /api/groups/:groupId - Delete a group
-router.delete('/:groupId', async (req, res) => {
+router.delete("/:groupId", async (req, res) => {
   try {
     const { groupId } = req.params;
     const { userId } = req.body;
@@ -329,47 +351,48 @@ router.delete('/:groupId', async (req, res) => {
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: "User ID is required",
       });
     }
 
     // Find the group
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: 'Group not found'
+        message: "Group not found",
       });
     }
 
     // Check if the user is a member of the group (either admin or regular member)
-    const isMember = group.groupMembers.some(member => member.userId === userId);
+    const isMember = group.groupMembers.some(
+      (member) => member.userId === userId
+    );
     if (!isMember) {
       return res.status(403).json({
         success: false,
-        message: 'Only group members can delete the group'
+        message: "Only group members can delete the group",
       });
     }
 
     // Delete associated orders
-    await Order.deleteMany({ groupId });
+    await Order.deleteMany({ groupId: group._id.toString() });
 
     // Delete the group
-    await Group.deleteOne({ id: groupId });
+    await Group.findByIdAndDelete(groupId);
 
     res.json({
       success: true,
-      message: 'Group deleted successfully'
+      message: "Group deleted successfully",
     });
-
   } catch (error) {
-    console.error('Delete group error:', error);
+    console.error("Delete group error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete group',
-      error: error.message
+      message: "Failed to delete group",
+      error: error.message,
     });
   }
 });
 
-module.exports = router; 
+module.exports = router;

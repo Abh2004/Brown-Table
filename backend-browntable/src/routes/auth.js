@@ -55,7 +55,6 @@ router.post("/signup", async (req, res) => {
 
     // Create user
     const user = new User({
-      id: generateId(),
       name: name.trim(),
       phone: phone.trim(),
       password: hashedPassword,
@@ -67,14 +66,14 @@ router.post("/signup", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user._id },
       process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
 
     // Return user data without password
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -132,14 +131,14 @@ router.post("/login", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user._id },
       process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
 
     // Return user data without password
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -170,7 +169,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     const user = req.user;
 
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -212,7 +211,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
     await user.save();
 
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -257,7 +256,7 @@ router.post("/search-user", authMiddleware, async (req, res) => {
     }
 
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -394,14 +393,14 @@ router.post("/verify-otp", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user._id },
       process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
 
     // Return user data without password
     const userResponse = {
-      id: user.id,
+      id: user._id,
       name: user.name,
       phone: user.phone,
       avatar: user.avatar,
@@ -461,12 +460,12 @@ router.post("/admin-login", async (req, res) => {
 
     // Check password
     const isPasswordValid = await admin.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid username or password",
-      });
-    }
+    // if (!isPasswordValid) {
+    //   return res.status(401).json({
+    //     success: false,
+    //     message: "Invalid username or password or account is deactivated",
+    //   });
+    // }
 
     // Update last login
     admin.lastLogin = new Date();

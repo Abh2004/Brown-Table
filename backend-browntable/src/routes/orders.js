@@ -27,7 +27,7 @@ router.post("/:groupId/update-order", async (req, res) => {
     }
 
     // Check if group exists
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({
         success: false,
@@ -36,10 +36,21 @@ router.post("/:groupId/update-order", async (req, res) => {
     }
 
     // Check if user is a member of the group
+    // The userId from frontend should match the userId stored in group members
     const isMember = group.groupMembers.some(
-      (member) => member.userId === userId
+      (member) =>
+        member.userId === userId || member.userId === userId.toString()
     );
     if (!isMember) {
+      console.log("User membership check failed:", {
+        userId,
+        userIdType: typeof userId,
+        groupMembers: group.groupMembers.map((m) => ({
+          userId: m.userId,
+          type: typeof m.userId,
+        })),
+        groupId: group._id,
+      });
       return res.status(403).json({
         success: false,
         message: "User is not a member of this group",
@@ -47,24 +58,38 @@ router.post("/:groupId/update-order", async (req, res) => {
     }
 
     // Find existing order or create new one
-    let order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
+    let order = await Order.findOne({ groupId: group._id.toString() }).sort({
+      createdAt: -1,
+    });
 
     if (!order) {
+      console.log("Creating new order for group:", group._id.toString());
       order = new Order({
-        id: generateId(),
-        groupId,
+        groupId: group._id.toString(),
         items: [],
         totalAmount: 0,
         orderBy: userId,
       });
+    } else {
+      console.log("Found existing order:", order._id);
     }
 
     // Remove existing items from this user
-    order.items = order.items.filter((item) => item.addedBy !== userId);
+    const previousItemCount = order.items.length;
+    order.items = order.items.filter(
+      (item) => item.addedBy !== userId && item.addedBy !== userId.toString()
+    );
+    console.log(
+      "Removed existing items for user:",
+      userId,
+      "Previous count:",
+      previousItemCount,
+      "After removal:",
+      order.items.length
+    );
 
     // Add new items from this user
     const userItems = items.map((item) => ({
-      id: item.id,
       name: item.name,
       price: item.price,
       quantity: item.quantity,
@@ -75,16 +100,25 @@ router.post("/:groupId/update-order", async (req, res) => {
     }));
 
     order.items.push(...userItems);
+    console.log(
+      "Added",
+      userItems.length,
+      "new items for user:",
+      userId,
+      "Total items in order:",
+      order.items.length
+    );
 
     // Save order (pre-save middleware will calculate totals)
     await order.save();
+    console.log("Order saved successfully. Total amount:", order.totalAmount);
 
     res.json({
       success: true,
       message: "Order updated successfully",
       data: {
         order: {
-          id: order.id,
+          id: order._id,
           groupId: order.groupId,
           items: order.items,
           totalAmount: order.totalAmount,
@@ -110,7 +144,9 @@ router.get("/:groupId", async (req, res) => {
   try {
     const { groupId } = req.params;
 
-    const order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
+    const order = await Order.findOne({ groupId: groupId }).sort({
+      createdAt: -1,
+    });
 
     if (!order) {
       return res.status(404).json({
@@ -120,7 +156,7 @@ router.get("/:groupId", async (req, res) => {
     }
 
     // Get group details
-    const group = await Group.findOne({ id: groupId });
+    const group = await Group.findById(groupId);
 
     // Group items by member
     const itemsByMember = {};
@@ -128,7 +164,11 @@ router.get("/:groupId", async (req, res) => {
       group.groupMembers.forEach((member) => {
         itemsByMember[member.userId] = {
           member,
-          items: order.items.filter((item) => item.addedBy === member.userId),
+          items: order.items.filter(
+            (item) =>
+              item.addedBy === member.userId ||
+              item.addedBy === member.userId.toString()
+          ),
         };
       });
     }
@@ -137,7 +177,7 @@ router.get("/:groupId", async (req, res) => {
       success: true,
       data: {
         order: {
-          id: order.id,
+          id: order._id,
           groupId: order.groupId,
           items: order.items,
           totalAmount: order.totalAmount,
@@ -152,7 +192,7 @@ router.get("/:groupId", async (req, res) => {
         itemsByMember,
         group: group
           ? {
-              id: group.id,
+              id: group._id,
               name: group.name,
               groupMembers: group.groupMembers,
             }
@@ -175,7 +215,7 @@ router.put("/:orderId/status", async (req, res) => {
     const { orderId } = req.params;
     const { status, paymentStatus } = req.body;
 
-    const order = await Order.findOne({ id: orderId });
+    const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -214,7 +254,9 @@ router.delete("/:groupId/item/:itemId", async (req, res) => {
     const { groupId, itemId } = req.params;
     const { userId } = req.body;
 
-    const order = await Order.findOne({ groupId }).sort({ createdAt: -1 });
+    const order = await Order.findOne({ groupId: groupId }).sort({
+      createdAt: -1,
+    });
 
     if (!order) {
       return res.status(404).json({
@@ -224,7 +266,9 @@ router.delete("/:groupId/item/:itemId", async (req, res) => {
     }
 
     // Find item and check if user can remove it
-    const itemIndex = order.items.findIndex((item) => item.id === itemId);
+    const itemIndex = order.items.findIndex(
+      (item) => item._id.toString() === itemId
+    );
     if (itemIndex === -1) {
       return res.status(404).json({
         success: false,
@@ -233,7 +277,7 @@ router.delete("/:groupId/item/:itemId", async (req, res) => {
     }
 
     const item = order.items[itemIndex];
-    if (item.addedBy !== userId) {
+    if (item.addedBy !== userId && item.addedBy !== userId.toString()) {
       return res.status(403).json({
         success: false,
         message: "You can only remove your own items",

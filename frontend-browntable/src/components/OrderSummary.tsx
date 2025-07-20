@@ -52,7 +52,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
   // Check if current user is the group owner
   useEffect(() => {
     if (user && groupInfo) {
-      setIsOwner(groupInfo.adminId === user.id);
+      setIsOwner(groupInfo.groupAdminId === user.id);
     }
   }, [user, groupInfo]);
 
@@ -418,7 +418,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ open, onClose }) => {
                   <span className="font-semibold">Important:</span> <br />
                   {isOwner
                     ? "You will pay the bill for the entire group order. Your friends can pay you separately."
-                    : `You will pay only for your share to ${groupInfo?.adminId} of the order.`}
+                    : `You will pay only for your share to ${groupInfo?.groupAdminId} of the order.`}
                 </span>
               </div>
             </div>

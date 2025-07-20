@@ -1,54 +1,48 @@
 const mongoose = require("mongoose");
 
-const orderItemSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    required: true,
+const orderItemSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    type: {
+      type: String,
+      enum: ["veg", "non-veg"],
+      required: true,
+    },
+    addedBy: {
+      type: String,
+      required: true,
+    },
+    specialInstructions: {
+      type: String,
+      default: "",
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    modifiedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  name: {
-    type: String,
-    required: true,
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  type: {
-    type: String,
-    enum: ["veg", "non-veg"],
-    required: true,
-  },
-  addedBy: {
-    type: String,
-    required: true,
-  },
-  specialInstructions: {
-    type: String,
-    default: "",
-  },
-  addedAt: {
-    type: Date,
-    default: Date.now,
-  },
-  modifiedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  { _id: true }
+); // Ensure each item has a unique _id
 
 const orderSchema = new mongoose.Schema(
   {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     groupId: {
       type: String, //foreign key
       required: true,

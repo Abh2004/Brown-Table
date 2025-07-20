@@ -141,6 +141,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
 
       console.log("🔄 Syncing user order to backend:", {
         userId: user.id,
+        userIdType: typeof user.id,
         items: userItems.length,
         groupId: currentGroupId,
       });
@@ -152,7 +153,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
           price: item.price,
           quantity: item.quantity,
           type: item.type,
-          addedBy: item.addedBy || user.id,
+          addedBy: user.id, // Use user.id consistently
           specialInstructions: item.specialInstructions || "",
         })),
         userId: user.id,

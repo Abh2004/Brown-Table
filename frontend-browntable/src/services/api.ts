@@ -113,7 +113,7 @@ export interface GroupMember {
 export interface Group {
   id: string;
   name: string;
-  adminId: string;
+  groupAdminId: string;
   inviteCode: string;
   arrivalTime: string;
   departureTime: string;

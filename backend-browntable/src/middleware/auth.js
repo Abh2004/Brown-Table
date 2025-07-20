@@ -17,7 +17,7 @@ const authMiddleware = async (req, res, next) => {
       token,
       process.env.JWT_SECRET || "fallback_secret"
     );
-    const user = await User.findOne({ id: decoded.userId });
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({
@@ -46,7 +46,7 @@ const optionalAuth = async (req, res, next) => {
         token,
         process.env.JWT_SECRET || "fallback_secret"
       );
-      const user = await User.findOne({ id: decoded.userId });
+      const user = await User.findById(decoded.userId);
       if (user) {
         req.user = user;
       }

@@ -140,6 +140,57 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleOrderStatusUpdate = async (orderId: string) => {
+    if (!token) {
+      toast.error("Admin not logged in");
+      return;
+    }
+
+    try {
+      // Find the current order to determine next status
+      const currentOrder = dashboardData?.upcomingOrders.find(
+        (order) => order.id === orderId
+      );
+
+      if (!currentOrder) {
+        toast.error("Order not found");
+        return;
+      }
+
+      let newStatus = "served";
+      if (currentOrder.status === "pending") {
+        newStatus = "preparing";
+      } else if (currentOrder.status === "preparing") {
+        newStatus = "ready";
+      } else if (currentOrder.status === "ready") {
+        newStatus = "served";
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/admin/order/${orderId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success(`Order marked as ${newStatus}`);
+        loadDashboardData(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || "Failed to update order status");
+      }
+    } catch (error) {
+      console.error("Update order status error:", error);
+      toast.error("Failed to update order status");
+    }
+  };
+
   // Update time every second
   useEffect(() => {
     const timer = setInterval(() => {
@@ -436,10 +487,7 @@ const AdminDashboard: React.FC = () => {
 
               <UpcomingOrders
                 orders={dashboardData?.upcomingOrders || []}
-                onClear={(orderId: string) => {
-                  // Handle clear order
-                  console.log("Clear order:", orderId);
-                }}
+                onClear={handleOrderStatusUpdate}
               />
             </div>
           </div>

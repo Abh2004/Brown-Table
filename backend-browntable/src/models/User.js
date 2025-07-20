@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     name: {
       type: String,
       required: true,
@@ -26,7 +21,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: false, // Make optional for guest users
       minlength: 6,
     },
     avatar: {
@@ -50,6 +45,18 @@ const userSchema = new mongoose.Schema(
     },
     // For storing group invitations
     invites: [
+      {
+        groupId: String,
+        groupName: String,
+        invitedBy: String,
+        invitedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    // For storing pending group invitations
+    pendingInvites: [
       {
         groupId: String,
         groupName: String,

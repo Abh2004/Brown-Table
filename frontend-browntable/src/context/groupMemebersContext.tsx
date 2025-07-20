@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 import { groupAPI, inviteAPI } from "../services/api";
 import { useAuth } from "./AuthContext";
 import type { Group, GroupMember as APIGroupMember } from "../services/api";
@@ -38,7 +44,7 @@ interface GroupInfo {
   date: string;
   discount?: number;
   groupMembers: GroupMember[];
-  adminId?: string;
+  groupAdminId?: string;
   inviteCode?: string;
 }
 
@@ -111,7 +117,7 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
     date: apiGroup.date,
     table: apiGroup.table,
     discount: apiGroup.discount,
-    adminId: apiGroup.adminId,
+    groupAdminId: apiGroup.groupAdminId,
     inviteCode: apiGroup.inviteCode,
     groupMembers: apiGroup.groupMembers.map(convertAPIGroupMember),
   });
@@ -122,14 +128,14 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       setError(null);
 
       const response = await groupAPI.createGroup(data);
-      
+
       if (response.success) {
         const group = response.data.group;
         const newGroupInfo = convertAPIGroup(group);
-        
+
         setGroupInfo(newGroupInfo);
         setGroupMembers(newGroupInfo.groupMembers);
-        
+
         // Set invite link
         if (group.inviteLink) {
           setInviteLink(group.inviteLink);
@@ -142,7 +148,8 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       }
     } catch (err: any) {
       console.error("❌ Failed to create group:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to create group";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to create group";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -156,11 +163,11 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       setError(null);
 
       const response = await groupAPI.getGroup(groupId);
-      
+
       if (response.success) {
         const group = response.data.group;
         const newGroupInfo = convertAPIGroup(group);
-        
+
         setGroupInfo(newGroupInfo);
         setGroupMembers(newGroupInfo.groupMembers);
 
@@ -170,7 +177,8 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       }
     } catch (err: any) {
       console.error("❌ Failed to load group:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to load group";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to load group";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -188,7 +196,7 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       if (response.success) {
         const group = response.data.group;
         const newGroupInfo = convertAPIGroup(group);
-        
+
         setGroupInfo(newGroupInfo);
         setGroupMembers(newGroupInfo.groupMembers);
 
@@ -198,7 +206,8 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       }
     } catch (err: any) {
       console.error("❌ Failed to join group:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to join group";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to join group";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -230,7 +239,10 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       }
     } catch (err: any) {
       console.error("❌ Failed to generate invite link:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to generate invite link";
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to generate invite link";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -253,13 +265,17 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       });
 
       if (response.success) {
-        console.log("✅ User invited successfully:", response.data.invitedUser.name);
+        console.log(
+          "✅ User invited successfully:",
+          response.data.invitedUser.name
+        );
       } else {
         throw new Error(response.message || "Failed to invite user");
       }
     } catch (err: any) {
       console.error("❌ Failed to invite user:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to invite user";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to invite user";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -267,13 +283,16 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
     }
   };
 
-  const deleteGroup = async (groupId: string, userId: string): Promise<void> => {
+  const deleteGroup = async (
+    groupId: string,
+    userId: string
+  ): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
 
       const response = await groupAPI.deleteGroup(groupId, userId);
-      
+
       if (response.success) {
         console.log("✅ Group deleted successfully");
       } else {
@@ -281,7 +300,8 @@ export const GroupMembersProvider: React.FC<GroupMembersProviderProps> = ({
       }
     } catch (err: any) {
       console.error("❌ Failed to delete group:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to delete group";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to delete group";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {

@@ -33,11 +33,6 @@ const groupMemberSchema = new mongoose.Schema({
 
 const groupSchema = new mongoose.Schema(
   {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     name: {
       type: String,
       required: true,

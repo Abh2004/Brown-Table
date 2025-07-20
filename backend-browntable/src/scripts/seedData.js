@@ -30,51 +30,51 @@ const seedData = async () => {
 
     console.log("🧹 Cleared existing data");
 
-    // Seed Admin Data
-    const adminData = [
-      {
-        username: "admin",
-        password: "admin123",
-        email: "admin@browntable.com",
-        name: "Restaurant Manager",
-        role: "admin",
-        permissions: [
-          "manage_reservations",
-          "manage_orders",
-          "manage_tables",
-          "view_reports",
-        ],
-        avatar: "👨‍💼",
-        phone: "+91-9876543210",
-        department: "Management",
-      },
-      {
-        username: "superadmin",
-        password: "super123",
-        email: "superadmin@browntable.com",
-        name: "Super Administrator",
-        role: "super_admin",
-        permissions: [
-          "manage_reservations",
-          "manage_orders",
-          "manage_tables",
-          "view_reports",
-          "manage_users",
-          "manage_admins",
-        ],
-        avatar: "👑",
-        phone: "+91-9876543211",
-        department: "Administration",
-      },
-    ];
+    // Seed Admin Data - Create admins individually to trigger password hashing
+    const admin1 = new Admin({
+      username: "admin",
+      password: "admin123",
+      email: "admin@browntable.com",
+      name: "Restaurant Manager",
+      role: "admin",
+      permissions: [
+        "manage_reservations",
+        "manage_orders",
+        "manage_tables",
+        "view_reports",
+      ],
+      avatar: "👨‍💼",
+      phone: "+91-9876543210",
+      department: "Management",
+    });
+    await admin1.save();
 
-    const admins = await Admin.insertMany(adminData);
-    console.log("✅ Admin data seeded:", admins.length, "admins");
+    const admin2 = new Admin({
+      username: "superadmin",
+      password: "super123",
+      email: "superadmin@browntable.com",
+      name: "Super Administrator",
+      role: "super_admin",
+      permissions: [
+        "manage_reservations",
+        "manage_orders",
+        "manage_tables",
+        "view_reports",
+        "manage_users",
+        "manage_admins",
+      ],
+      avatar: "👑",
+      phone: "+91-9876543211",
+      department: "Administration",
+    });
+    await admin2.save();
+
+    console.log("✅ Admin data seeded: 2 admins");
 
     // Seed Users
     const userData = [
       {
-        id: "user_001",
+        // id: "user_001",
         name: "John Doe",
         phone: "9876543210",
         password: "password123",
@@ -82,7 +82,7 @@ const seedData = async () => {
         color: "bg-blue-500",
       },
       {
-        id: "user_002",
+        // id: "user_002",
         name: "Jane Smith",
         phone: "9876543211",
         password: "password123",
@@ -90,7 +90,7 @@ const seedData = async () => {
         color: "bg-green-500",
       },
       {
-        id: "user_003",
+        // id: "user_003",
         name: "Mike Johnson",
         phone: "9876543212",
         password: "password123",
@@ -98,7 +98,7 @@ const seedData = async () => {
         color: "bg-red-500",
       },
       {
-        id: "user_004",
+        // id: "user_004",
         name: "Sarah Wilson",
         phone: "9876543213",
         password: "password123",
@@ -106,7 +106,7 @@ const seedData = async () => {
         color: "bg-yellow-500",
       },
       {
-        id: "user_005",
+        // id: "user_005",
         name: "David Brown",
         phone: "9876543214",
         password: "password123",
@@ -115,7 +115,13 @@ const seedData = async () => {
       },
     ];
 
-    const users = await User.insertMany(userData);
+    // Create users individually to trigger password hashing
+    const users = [];
+    for (const userDataItem of userData) {
+      const user = new User(userDataItem);
+      await user.save();
+      users.push(user);
+    }
     console.log("✅ User data seeded:", users.length, "users");
 
     // Seed Tables
@@ -145,7 +151,7 @@ const seedData = async () => {
     // Seed Menu Items
     const menuData = [
       {
-        id: "menu_001",
+        // id: "menu_001",
         name: "Cappuccino",
         price: 12.99,
         type: "veg",
@@ -156,7 +162,7 @@ const seedData = async () => {
           "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg",
       },
       {
-        id: "menu_002",
+        // id: "menu_002",
         name: "Latte",
         price: 14.99,
         type: "veg",
@@ -167,7 +173,7 @@ const seedData = async () => {
           "https://images.pexels.com/photos/2396220/pexels-photo-2396220.jpeg",
       },
       {
-        id: "menu_003",
+        // id: "menu_003",
         name: "Croissant",
         price: 8.99,
         type: "veg",
@@ -178,7 +184,7 @@ const seedData = async () => {
           "https://images.pexels.com/photos/566566/pexels-photo-566566.jpeg",
       },
       {
-        id: "menu_004",
+        // id: "menu_004",
         name: "Chicken Sandwich",
         price: 16.99,
         type: "non-veg",
@@ -189,7 +195,7 @@ const seedData = async () => {
           "https://images.pexels.com/photos/1633578/pexels-photo-1633578.jpeg",
       },
       {
-        id: "menu_005",
+        // id: "menu_005",
         name: "Caesar Salad",
         price: 13.99,
         type: "veg",
@@ -207,7 +213,7 @@ const seedData = async () => {
     // Seed Groups
     const groupData = [
       {
-        id: "group_001",
+        // id: "group_001",
         name: "John's Birthday Party",
         groupAdminId: users[0].id,
         inviteCode: "BDAY001",
@@ -243,7 +249,7 @@ const seedData = async () => {
         ],
       },
       {
-        id: "group_002",
+        // id: "group_002",
         name: "Business Meeting",
         groupAdminId: users[1].id,
         inviteCode: "BIZ002",
@@ -271,7 +277,7 @@ const seedData = async () => {
         ],
       },
       {
-        id: "group_003",
+        // id: "group_003",
         name: "Family Dinner",
         groupAdminId: users[2].id,
         inviteCode: "FAM003",
@@ -300,7 +306,7 @@ const seedData = async () => {
         ],
       },
       {
-        id: "group_004",
+        // id: "group_004",
         name: "Coffee Club Meetup",
         groupAdminId: users[3].id,
         inviteCode: "COFFEE004",
@@ -328,7 +334,7 @@ const seedData = async () => {
         ],
       },
       {
-        id: "group_005",
+        // id: "group_005",
         name: "Study Group",
         groupAdminId: users[4].id,
         inviteCode: "STUDY005",
@@ -363,7 +369,7 @@ const seedData = async () => {
     // Seed Pending Reservation Requests
     const pendingReservationData = [
       {
-        id: "pending_001",
+        // id: "pending_001",
         name: "Anniversary Celebration",
         groupAdminId: "guest_001",
         inviteCode: "ANN001",
@@ -411,7 +417,7 @@ const seedData = async () => {
         createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
       },
       {
-        id: "pending_002",
+        // id: "pending_002",
         name: "Corporate Team Lunch",
         groupAdminId: "guest_005",
         inviteCode: "CORP002",
@@ -487,7 +493,7 @@ const seedData = async () => {
         createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
       },
       {
-        id: "pending_003",
+        // id: "pending_003",
         name: "Birthday Party",
         groupAdminId: "guest_013",
         inviteCode: "BDAY003",
@@ -603,7 +609,7 @@ const seedData = async () => {
     const now = new Date();
     const orderData = [
       {
-        id: "order_001",
+        // id: "order_001",
         groupId: groups[0].id,
         orderBy: users[0].id,
         items: [
@@ -631,7 +637,7 @@ const seedData = async () => {
         createdAt: new Date(now.getTime() - 5 * 60 * 1000), // Ordered 5 minutes ago
       },
       {
-        id: "order_002",
+        // id: "order_002",
         groupId: groups[1].id,
         orderBy: users[1].id,
         items: [
@@ -659,7 +665,7 @@ const seedData = async () => {
         createdAt: new Date(now.getTime() - 15 * 60 * 1000), // Ordered 15 minutes ago
       },
       {
-        id: "order_003",
+        // id: "order_003",
         groupId: groups[2].id,
         orderBy: users[2].id,
         items: [
@@ -687,7 +693,7 @@ const seedData = async () => {
         createdAt: new Date(now.getTime() - 25 * 60 * 1000), // Ordered 25 minutes ago
       },
       {
-        id: "order_004",
+        // id: "order_004",
         groupId: groups[3].id,
         orderBy: users[3].id,
         items: [
@@ -715,7 +721,7 @@ const seedData = async () => {
         createdAt: new Date(now.getTime() - 10 * 60 * 1000), // Ordered 10 minutes ago
       },
       {
-        id: "order_005",
+        // id: "order_005",
         groupId: groups[4].id,
         orderBy: users[4].id,
         items: [

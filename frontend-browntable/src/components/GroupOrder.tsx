@@ -11,6 +11,7 @@ import {
   Save,
   X,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { useBooking } from "../context/BookingContext";
 import { useGroupMembers } from "../context/groupMemebersContext";
@@ -45,6 +46,7 @@ const GroupOrder: React.FC = () => {
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [editedGroupName, setEditedGroupName] = useState("");
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const groupId = searchParams.get("groupId");
 
@@ -85,6 +87,34 @@ const GroupOrder: React.FC = () => {
 
     loadGroupData();
   }, [groupId, navigate]); // Only depend on groupId and navigate
+
+  // Function to refresh order data
+  const refreshOrderData = async () => {
+    if (!groupId) return;
+
+    try {
+      setRefreshing(true);
+      setError(null);
+
+      console.log("🔄 Refreshing group order data...");
+
+      // Load group order data (includes cart items)
+      const orderResponse = await groupAPI.getGroupOrder(groupId);
+      if (orderResponse.success) {
+        setOrderData(orderResponse.data);
+        console.log("✅ Group order refreshed:", orderResponse.data);
+      } else {
+        throw new Error(
+          orderResponse.message || "Failed to refresh order data"
+        );
+      }
+    } catch (err: any) {
+      console.error("❌ Failed to refresh order data:", err);
+      setError(err.message || "Failed to refresh order data");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Handle group name update
   const updateGroupName = async () => {
@@ -268,7 +298,7 @@ const GroupOrder: React.FC = () => {
               <h2 className="text-xl font-bold text-center text-black">
                 {groupInfo.name || "Group Order"}
               </h2>
-              {currentUserId === groupInfo.adminId && (
+              {currentUserId === groupInfo.groupAdminId && (
                 <button
                   onClick={startEditingGroupName}
                   className="p-1 text-gray-600 hover:text-[#4d3a00]"
