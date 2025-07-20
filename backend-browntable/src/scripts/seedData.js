@@ -69,7 +69,8 @@ const seedData = async () => {
     });
     await admin2.save();
 
-    console.log("✅ Admin data seeded: 2 admins");
+    const admins = [admin1, admin2];
+    console.log("✅ Admin data seeded:", admins.length, "admins");
 
     // Seed Users
     const userData = [
